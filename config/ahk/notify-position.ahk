@@ -1,6 +1,10 @@
-; Moves app-drawn notification popups to the bottom-right corner.
-; Apps like Zalo place their own popups next to the native taskbar; with the
-; taskbar hidden (taskbar.ahk) they fall back to the middle of the screen.
+; Fixes app-drawn notification popups (Zalo):
+;  - Moves them to the bottom-right corner. Apps like Zalo place their own
+;    popups next to the native taskbar; with the taskbar hidden (taskbar.ahk)
+;    they fall back to the middle of the screen.
+;  - Marks them WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW so GlazeWM does not manage
+;    and focus them. Otherwise focus-follows-cursor moved focus away on the next
+;    mouse move and Zalo dismissed the popup after about a second.
 ; Uses MonitorWorkArea() from workspace-alttab.ahk.
 
 ; A popup matches when its process is listed and it is small (physical px,
@@ -19,11 +23,18 @@ Notify_Init() {
     callback := CallbackCreate(Notify_OnShow, "F", 7)
     DllCall("SetWinEventHook", "uint", EVENT_OBJECT_SHOW, "uint", EVENT_OBJECT_SHOW
         , "ptr", 0, "ptr", callback, "uint", 0, "uint", 0, "uint", 0, "ptr")
+    ; Apps reuse one hidden popup window, so mark it before its first show.
+    DetectHiddenWindows(true)
+    for hwnd in WinGetList()
+        if Notify_IsPopup(hwnd)
+            Notify_Prepare(hwnd)
+    DetectHiddenWindows(false)
 }
 
 Notify_OnShow(hook, event, hwnd, idObject, idChild, thread, time) {
     if idObject != 0 || !Notify_IsPopup(hwnd)
         return
+    Notify_Prepare(hwnd)
     Notify_Place(hwnd)
     state := { left: NOTIFY_RECHECKS }
     recheck := () => Notify_Recheck(hwnd, state, recheck)
@@ -48,6 +59,13 @@ Notify_IsPopup(hwnd) {
     } catch {
         return false ; window vanished
     }
+}
+
+Notify_Prepare(hwnd) {
+    static GWL_EXSTYLE := -20, WANTED := 0x08000000 | 0x80 ; NOACTIVATE | TOOLWINDOW
+    ex := DllCall("GetWindowLongPtr", "ptr", hwnd, "int", GWL_EXSTYLE, "ptr")
+    if (ex & WANTED) != WANTED
+        DllCall("SetWindowLongPtr", "ptr", hwnd, "int", GWL_EXSTYLE, "ptr", ex | WANTED, "ptr")
 }
 
 Notify_Place(hwnd) {

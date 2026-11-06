@@ -200,7 +200,6 @@ function Install-ZebarConfig {
 
 function Install-AhkHelpers {
     Write-Step 'Installing AutoHotkey helpers'
-    Stop-WinlandAhk
     New-Item -ItemType Directory -Force $AhkDir | Out-Null
     Copy-Item (Join-Path $Repo 'config\ahk\*.ahk') $AhkDir -Force
 }
@@ -282,6 +281,7 @@ function Restart-Winland {
         while ((Get-Process glazewm -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300 }
     }
     Stop-Process -Name zebar -Force -ErrorAction SilentlyContinue
+    Stop-WinlandAhk
     Start-Sleep -Seconds 1
     # GlazeWM's startup_commands start Zebar and Flow Launcher.
     Start-Process $GlazeExe
