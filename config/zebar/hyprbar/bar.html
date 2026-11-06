@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="./bar.css" />
+    <script
+      src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"
+      integrity="sha256-aS0B0wnsaDByLfE16h4MDCP1fQFccysd1YWOcV+gbBo="
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+      import React, { useState, useEffect } from 'https://esm.sh/react@18.3.1';
+      import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+      import * as zebar from 'https://esm.sh/zebar@3.3.1';
+      import { openPopup, openUri, visibleTrayIcons, volumeIcon, wheelVolume } from './shared.js';
+      import { OVERVIEW_MODE, syncLayout } from './layout.js';
+
+      const providers = zebar.createProviderGroup({
+        glazewm: { type: 'glazewm' },
+        time: { type: 'date', formatting: 'HH:mm' },
+        day: { type: 'date', formatting: 'EEE dd/MM' },
+        cpu: { type: 'cpu', refreshInterval: 3000 },
+        memory: { type: 'memory', refreshInterval: 3000 },
+        network: { type: 'network', refreshInterval: 2000 },
+        battery: { type: 'battery' },
+        audio: { type: 'audio' },
+        media: { type: 'media' },
+        systray: { type: 'systray' },
+      });
+
+      const START_MENU_ARGS =
+        "-NoProfile -WindowStyle Hidden -Command (New-Object -ComObject WScript.Shell).SendKeys('^{ESC}')";
+      const CPU_HOT = 85;
+      const MEM_HOT = 90;
+
+      // Process name -> Nerd Font icon.
+      const APP_ICONS = {
+        chrome: 'nf-md-google_chrome',
+        msedge: 'nf-md-microsoft_edge',
+        firefox: 'nf-md-firefox',
+        brave: 'nf-md-shield_half_full',
+        code: 'nf-md-microsoft_visual_studio_code',
+        cursor: 'nf-md-microsoft_visual_studio_code',
+        windowsterminal: 'nf-dev-terminal',
+        wt: 'nf-dev-terminal',
+        cmd: 'nf-dev-terminal',
+        powershell: 'nf-md-powershell',
+        pwsh: 'nf-md-powershell',
+        explorer: 'nf-md-folder',
+        discord: 'nf-md-discord',
+        spotify: 'nf-md-spotify',
+        telegram: 'nf-fa-telegram',
+        zalo: 'nf-md-chat',
+        slack: 'nf-md-slack',
+        teams: 'nf-md-microsoft_teams',
+        'ms-teams': 'nf-md-microsoft_teams',
+        notion: 'nf-md-notebook',
+        obsidian: 'nf-md-diamond_stone',
+        steam: 'nf-md-steam',
+        winword: 'nf-md-microsoft_word',
+        excel: 'nf-md-microsoft_excel',
+        powerpnt: 'nf-md-microsoft_powerpoint',
+        outlook: 'nf-md-microsoft_outlook',
+        notepad: 'nf-md-note_text',
+        'notepad++': 'nf-md-note_text',
+        figma: 'nf-fa-figma',
+        devenv: 'nf-md-microsoft_visual_studio',
+        idea64: 'nf-dev-intellij',
+        systemsettings: 'nf-md-cog',
+        taskmgr: 'nf-md-chart_areaspline',
+        vlc: 'nf-md-vlc',
+      };
+
+      function appIcon(processName) {
+        return APP_ICONS[(processName || '').toLowerCase()] || 'nf-md-application_outline';
+      }
+
+      function collectWindows(container) {
+        if (!container) return [];
+        if (container.type === 'window') return [container];
+        return (container.children || []).flatMap(collectWindows);
+      }
+
+      function formatSpeed(measure) {
+        if (!measure) return '0B';
+        return `${Math.round(measure.siValue)}${measure.siUnit.replace('/s', '')}`;
+      }
+
+      function networkIcon(net) {
+        const iface = net.defaultInterface;
+        if (!iface) return 'nf-md-wifi_strength_off_outline';
+        if (iface.type === 'ethernet') return 'nf-md-ethernet';
+        if (iface.type === 'proprietary_virtual') return 'nf-md-shield_lock_outline';
+        const s = net.defaultGateway?.signalStrength ?? 0;
+        if (s >= 80) return 'nf-md-wifi_strength_4';
+        if (s >= 60) return 'nf-md-wifi_strength_3';
+        if (s >= 40) return 'nf-md-wifi_strength_2';
+        return 'nf-md-wifi_strength_1';
+      }
+
+      function batteryIcon(bat) {
+        if (bat.isCharging) return 'nf-md-battery_charging';
+        const level = Math.max(1, Math.min(10, Math.round(bat.chargePercent / 10))) * 10;
+        return level === 100 ? 'nf-md-battery' : `nf-md-battery_${level}`;
+      }
+
+      function openStartMenu() {
+        zebar.shellExec('powershell', START_MENU_ARGS).catch((err) => console.error('start menu failed', err));
+      }
+
+      function Workspaces({ glazewm }) {
+        const onWheel = (e) =>
+          glazewm.runCommand(
+            e.deltaY > 0 ? 'focus --next-active-workspace' : 'focus --prev-active-workspace',
+          );
+
+        return (
+          <div className="island workspaces" onWheel={onWheel}>
+            {glazewm.currentWorkspaces.map((ws) => {
+              const apps = collectWindows(ws).slice(0, 4);
+              const cls = ['ws', ws.hasFocus && 'focused', ws.isDisplayed && 'displayed']
+                .filter(Boolean)
+                .join(' ');
+              return (
+                <button
+                  key={ws.name}
+                  className={cls}
+                  title={`Workspace ${ws.displayName ?? ws.name}`}
+                  onClick={() => glazewm.runCommand(`focus --workspace ${ws.name}`)}
+                >
+                  <span>{ws.displayName ?? ws.name}</span>
+                  {apps.length > 0 && (
+                    <span className="apps">
+                      {apps.map((w) => (
+                        <i key={w.id} className={`nf ${appIcon(w.processName)}`}></i>
+                      ))}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        );
+      }
+
+      function FocusedTitle({ glazewm }) {
+        const focused = glazewm.focusedContainer;
+        const onThisMonitor = glazewm.currentWorkspaces.some((ws) => ws.hasFocus);
+        if (!focused || focused.type !== 'window' || !onThisMonitor) return null;
+        return (
+          <div className="island title" title={focused.title}>
+            <i className={`nf ${appIcon(focused.processName)}`}></i>
+            <span>{focused.title || focused.processName}</span>
+          </div>
+        );
+      }
+
+      function WmState({ glazewm }) {
+        return (
+          <>
+            {glazewm.isPaused && (
+              <button className="chip paused" onClick={() => glazewm.runCommand('wm-toggle-pause')}>
+                PAUSED
+              </button>
+            )}
+            {glazewm.bindingModes.filter((mode) => mode.name !== OVERVIEW_MODE).map((mode) => (
+              <button
+                key={mode.name}
+                className="chip mode"
+                onClick={() => glazewm.runCommand(`wm-disable-binding-mode --name ${mode.name}`)}
+              >
+                {mode.displayName ?? mode.name}
+              </button>
+            ))}
+            <button
+              className="mod tiling"
+              title="Toggle tiling direction (Win+J)"
+              onClick={() => glazewm.runCommand('toggle-tiling-direction')}
+            >
+              <i
+                className={`nf ${
+                  glazewm.tilingDirection === 'horizontal'
+                    ? 'nf-md-view_column_outline'
+                    : 'nf-md-view_agenda_outline'
+                }`}
+              ></i>
+            </button>
+          </>
+        );
+      }
+
+      function Media({ media }) {
+        const s = media?.currentSession;
+        if (!s || !s.title) return null;
+        const label = s.artist ? `${s.title} - ${s.artist}` : s.title;
+        return (
+          <button className="mod media" title={label} onClick={() => media.togglePlayPause()}>
+            <i className={`nf ${s.isPlaying ? 'nf-md-pause' : 'nf-md-play'}`}></i>
+            <span>{label}</span>
+          </button>
+        );
+      }
+
+      // Popups (tray.html, volume.html) are full-monitor layers opened under
+      // the button that triggered them; see shared.js.
+      function Tray({ systray, audio }) {
+        const count = visibleTrayIcons(systray, audio).length;
+        if (!count) return null;
+
+        const open = (e) => openPopup('tray', e.currentTarget.closest('.island'));
+
+        return (
+          <div className="island tray">
+            <button className="mod tray-toggle" title={`${count} tray icons`} onClick={open}>
+              <i className="nf nf-md-chevron_down"></i>
+              <span>{count}</span>
+            </button>
+          </div>
+        );
+      }
+
+      function Volume({ audio }) {
+        const dev = audio?.defaultPlaybackDevice;
+        if (!dev) return null;
+        return (
+          <button
+            className="mod vol"
+            title={`${dev.name} - click for volume, scroll to change, right-click to mute`}
+            onWheel={(e) => audio.setVolume(wheelVolume(dev, e.deltaY))}
+            onClick={(e) => openPopup('volume', e.currentTarget.closest('.island'))}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              audio.setMute(!dev.isMuted);
+            }}
+          >
+            <i className={`nf ${volumeIcon(dev)}`}></i>
+            <span className={dev.isMuted ? 'muted' : ''}>{Math.round(dev.volume)}%</span>
+          </button>
+        );
+      }
+
+      function Stats({ cpu, memory, network, battery }) {
+        return (
+          <>
+            {cpu && (
+              <div className="mod cpu" title="CPU">
+                <i className="nf nf-oct-cpu"></i>
+                <span className={cpu.usage > CPU_HOT ? 'hot' : ''}>{Math.round(cpu.usage)}%</span>
+              </div>
+            )}
+            {memory && (
+              <div className="mod mem" title="RAM">
+                <i className="nf nf-fae-chip"></i>
+                <span className={memory.usage > MEM_HOT ? 'hot' : ''}>{Math.round(memory.usage)}%</span>
+              </div>
+            )}
+            {network && (
+              <button
+                className="mod net"
+                title={network.defaultGateway?.ssid || network.defaultInterface?.friendlyName || 'Network'}
+                onClick={() => openUri('ms-availablenetworks:')}
+              >
+                <i className={`nf ${networkIcon(network)}`}></i>
+                <span>{formatSpeed(network.traffic?.received)}</span>
+              </button>
+            )}
+            {battery && battery.chargePercent != null && battery.state !== 'unknown' && (
+              <div className="mod bat" title={battery.state}>
+                <i className={`nf ${batteryIcon(battery)}`}></i>
+                <span>{Math.round(battery.chargePercent)}%</span>
+              </div>
+            )}
+          </>
+        );
+      }
+
+      function App() {
+        const [output, setOutput] = useState(providers.outputMap);
+
+        useEffect(() => {
+          providers.onOutput(() => {
+            setOutput({ ...providers.outputMap });
+            syncLayout(providers.outputMap.glazewm);
+          });
+        }, []);
+
+        const { glazewm, cpu, memory, network, battery, audio, media, systray } = output;
+
+        return (
+          <div className="bar">
+            <div className="side left">
+              <div className="island">
+                <button className="logo" title="Start" onClick={openStartMenu}>
+                  <i className="nf nf-md-microsoft_windows"></i>
+                </button>
+              </div>
+              {glazewm && <Workspaces glazewm={glazewm} />}
+              {glazewm && <FocusedTitle glazewm={glazewm} />}
+            </div>
+
+            <button className="island clock" onClick={() => openUri('ms-actioncenter:')}>
+              <span className="time">{output.time?.formatted}</span>
+              <span className="sep"></span>
+              <span className="date">{output.day?.formatted}</span>
+            </button>
+
+            <div className="side right">
+              <Tray systray={systray} audio={audio} />
+              <div className="island">
+                {glazewm && <WmState glazewm={glazewm} />}
+                <Media media={media} />
+                <Stats cpu={cpu} memory={memory} network={network} battery={battery} />
+                <Volume audio={audio} />
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>

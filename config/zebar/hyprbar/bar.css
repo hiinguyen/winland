@@ -1,0 +1,172 @@
+@import 'https://www.nerdfonts.com/assets/css/webfont.css';
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap');
+
+/* Catppuccin Mocha */
+:root {
+  --base: #1e1e2e;
+  --mantle: #181825;
+  --crust: #11111b;
+  --surface0: #313244;
+  --surface1: #45475a;
+  --overlay0: #6c7086;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --blue: #89b4fa;
+  --lavender: #b4befe;
+  --mauve: #cba6f7;
+  --pink: #f5c2e7;
+  --red: #f38ba8;
+  --peach: #fab387;
+  --yellow: #f9e2af;
+  --green: #a6e3a1;
+  --teal: #94e2d5;
+  --sky: #89dceb;
+
+  --island-bg: rgb(30 30 46 / 88%);
+  --island-border: rgb(205 214 244 / 8%);
+  --radius: 12px;
+  --h: 32px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; background: transparent; }
+
+body {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 6px 10px 6px;
+}
+
+.side { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.side.right { justify-content: flex-end; }
+
+.island {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--h);
+  padding: 0 6px;
+  background: var(--island-bg);
+  border: 1px solid var(--island-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
+  backdrop-filter: blur(14px);
+  min-width: 0;
+}
+
+/* Logo */
+.logo {
+  width: 30px; height: 24px;
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 15px;
+  color: var(--blue);
+  transition: background 150ms, color 150ms;
+}
+.logo:hover { background: var(--surface0); color: var(--mauve); }
+
+/* Workspaces */
+.workspaces { gap: 3px; padding: 0 4px; }
+
+.ws {
+  display: flex; align-items: center; gap: 5px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--overlay0);
+  font-weight: 700;
+  transition: background 200ms var(--ease), color 200ms, padding 250ms var(--ease);
+}
+.ws:hover { background: var(--surface0); color: var(--text); }
+.ws.displayed { color: var(--lavender); background: rgb(180 190 254 / 10%); }
+.ws.focused {
+  color: var(--crust);
+  background: linear-gradient(135deg, var(--blue), var(--mauve));
+  padding: 0 12px;
+}
+.ws .apps { display: flex; gap: 4px; font-size: 13px; font-weight: 500; }
+.ws .apps i { opacity: 0.9; }
+
+/* Focused window title */
+.title { gap: 8px; padding: 0 12px; max-width: 420px; }
+.title i { color: var(--mauve); font-size: 14px; }
+.title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--subtext); }
+
+/* Clock */
+.clock { padding: 0 14px; gap: 10px; }
+.clock .time { font-weight: 700; color: var(--text); font-size: 13px; }
+.clock .date { color: var(--subtext); }
+.clock .sep { width: 4px; height: 4px; border-radius: 50%; background: var(--mauve); }
+.clock:hover { border-color: rgb(203 166 247 / 35%); }
+
+/* Generic module */
+.mod {
+  display: flex; align-items: center; gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: background 150ms;
+}
+button.mod:hover { background: var(--surface0); }
+.mod i { font-size: 13px; }
+.mod .muted { color: var(--overlay0); }
+
+.cpu i { color: var(--blue); }
+.mem i { color: var(--green); }
+.net i { color: var(--teal); }
+.vol i { color: var(--peach); }
+.bat i { color: var(--yellow); }
+.media i { color: var(--green); }
+.media span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.hot { color: var(--red); }
+
+/* Tray */
+.tray { gap: 2px; }
+.tray-icon {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  display: grid; place-items: center;
+}
+.tray-icon:hover { background: var(--surface0); }
+.tray-icon img { width: 16px; height: 16px; }
+
+/* WM state chips */
+.chip {
+  height: 24px; padding: 0 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.chip.paused { background: var(--red); color: var(--crust); }
+.chip.mode { background: var(--peach); color: var(--crust); text-transform: uppercase; }
+.tiling { color: var(--lavender); }
+
+.tray-toggle i { color: var(--mauve); }
+.tray-toggle span { color: var(--subtext); }

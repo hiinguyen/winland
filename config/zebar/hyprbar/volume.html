@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="./bar.css" />
+    <link rel="stylesheet" type="text/css" href="./popup.css" />
+    <link rel="stylesheet" type="text/css" href="./volume.css" />
+    <script
+      src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"
+      integrity="sha256-aS0B0wnsaDByLfE16h4MDCP1fQFccysd1YWOcV+gbBo="
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      Volume popup, opened from the bar's volume button. Full-monitor layer like
+      the tray dropdown: click outside, click the button again, or Esc closes it.
+    -->
+    <script type="text/babel" data-type="module">
+      import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.3.1';
+      import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+      import * as zebar from 'https://esm.sh/zebar@3.3.1';
+      import { clampVolume, openUri, panelPosition, popupCloser, volumeIcon, wheelVolume } from './shared.js';
+
+      const providers = zebar.createProviderGroup({ audio: { type: 'audio' } });
+      const closePopup = popupCloser();
+
+      function call(label, fn) {
+        Promise.resolve()
+          .then(fn)
+          .catch((err) => console.error(`${label} failed`, err));
+      }
+
+      function VolumePanel({ audio }) {
+        const dev = audio?.defaultPlaybackDevice;
+        // While dragging, show the slider's own value so it does not jump back
+        // while the provider catches up.
+        const [dragValue, setDragValue] = useState(null);
+        if (!dev) return <div className="vol-empty">No playback device</div>;
+
+        const volume = dragValue ?? Math.round(dev.volume);
+        const muted = dev.isMuted || volume === 0;
+
+        const applyVolume = (value) => {
+          const v = clampVolume(value);
+          call('setVolume', () => audio.setVolume(v));
+          if (dev.isMuted && v > 0) call('setMute', () => audio.setMute(false));
+          return v;
+        };
+
+        return (
+          <div className="vol" onWheel={(e) => applyVolume(wheelVolume({ volume }, e.deltaY))}>
+            <div className="vol-head">
+              <span className="vol-device" title={dev.name}>{dev.name}</span>
+              <span className={`vol-value ${muted ? 'muted' : ''}`}>{volume}%</span>
+            </div>
+            <div className="vol-row">
+              <button
+                className={`vol-mute ${muted ? 'on' : ''}`}
+                title={dev.isMuted ? 'Unmute' : 'Mute'}
+                onClick={() => call('setMute', () => audio.setMute(!dev.isMuted))}
+              >
+                <i className={`nf ${volumeIcon({ ...dev, volume })}`}></i>
+              </button>
+              <input
+                className="vol-slider"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={volume}
+                style={{ '--pct': `${volume}%` }}
+                onChange={(e) => setDragValue(applyVolume(Number(e.target.value)))}
+                onPointerUp={() => setDragValue(null)}
+                onKeyUp={() => setDragValue(null)}
+              />
+            </div>
+            <button
+              className="vol-link"
+              onClick={() => {
+                openUri('ms-settings:sound');
+                closePopup();
+              }}
+            >
+              <i className="nf nf-md-cog_outline"></i>
+              <span>Sound settings</span>
+            </button>
+          </div>
+        );
+      }
+
+      function App() {
+        const [audio, setAudio] = useState(providers.outputMap.audio);
+        const position = useRef(panelPosition('volume')).current;
+
+        useEffect(() => {
+          providers.onOutput(() => setAudio(providers.outputMap.audio));
+        }, []);
+
+        const onBackdropDown = (e) => e.target === e.currentTarget && closePopup();
+
+        return (
+          <div className="popup-backdrop" onPointerDown={onBackdropDown} onContextMenu={(e) => e.preventDefault()}>
+            <div className="popup-panel" style={position}>
+              <VolumePanel audio={audio} />
+            </div>
+          </div>
+        );
+      }
+
+      createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>

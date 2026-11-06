@@ -1,0 +1,20 @@
+/* Tray dropdown panel (layer and panel chrome come from popup.css). */
+:root {
+  --tray-cell: 36px;
+}
+
+.tray-popup {
+  display: grid;
+  grid-auto-rows: var(--tray-cell);
+}
+
+.tray-popup .tray-icon {
+  width: var(--tray-cell);
+  height: var(--tray-cell);
+  border-radius: 8px;
+  transition: background 120ms, transform 120ms;
+}
+
+.tray-popup .tray-icon:hover { background: var(--surface0); }
+.tray-popup .tray-icon:active { transform: scale(0.92); }
+.tray-popup .tray-icon img { width: 18px; height: 18px; }

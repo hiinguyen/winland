@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="./bar.css" />
+    <link rel="stylesheet" type="text/css" href="./popup.css" />
+    <link rel="stylesheet" type="text/css" href="./tray.css" />
+    <script
+      src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"
+      integrity="sha256-aS0B0wnsaDByLfE16h4MDCP1fQFccysd1YWOcV+gbBo="
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      Tray dropdown: a full-monitor transparent layer with the icon panel under
+      the bar's toggle. A click outside the panel (including on the toggle again)
+      or Esc closes it. Left click on an icon closes it after the click is sent;
+      right click keeps it open so you can keep working with the app's menu.
+    -->
+    <script type="text/babel" data-type="module">
+      import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.3.1';
+      import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+      import * as zebar from 'https://esm.sh/zebar@3.3.1';
+      import { panelPosition, popupCloser, visibleTrayIcons } from './shared.js';
+
+      const TRAY_COLS = 5;
+      const DOUBLE_CLICK_MS = 300;
+
+      const providers = zebar.createProviderGroup({
+        systray: { type: 'systray' },
+        audio: { type: 'audio' },
+      });
+      const closePopup = popupCloser();
+
+      function TrayIcon({ icon, systray }) {
+        const lastClick = useRef(0);
+
+        const onClick = () => {
+          const now = Date.now();
+          if (now - lastClick.current < DOUBLE_CLICK_MS) {
+            systray.onLeftDoubleClick(icon.id);
+          } else {
+            systray.onLeftClick(icon.id);
+          }
+          lastClick.current = now;
+          // Wait out a possible second click before closing.
+          setTimeout(closePopup, DOUBLE_CLICK_MS);
+        };
+
+        const onContextMenu = (e) => {
+          e.preventDefault();
+          systray.onRightClick(icon.id);
+        };
+
+        const onAuxClick = (e) => e.button === 1 && systray.onMiddleClick(icon.id);
+
+        return (
+          <button
+            className="tray-icon"
+            title={icon.tooltip}
+            onClick={onClick}
+            onContextMenu={onContextMenu}
+            onAuxClick={onAuxClick}
+            onMouseEnter={() => systray.onHoverEnter(icon.id)}
+            onMouseLeave={() => systray.onHoverLeave(icon.id)}
+          >
+            <img src={icon.iconUrl} alt="" />
+          </button>
+        );
+      }
+
+      function App() {
+        const [output, setOutput] = useState(providers.outputMap);
+        const position = useRef(panelPosition('tray')).current;
+
+        useEffect(() => {
+          providers.onOutput(() => setOutput({ ...providers.outputMap }));
+        }, []);
+
+        const { systray, audio } = output;
+        const icons = visibleTrayIcons(systray, audio);
+        const cols = Math.max(1, Math.min(TRAY_COLS, icons.length));
+        const style = { ...position, gridTemplateColumns: `repeat(${cols}, var(--tray-cell))` };
+
+        // Close on any press that starts outside the panel.
+        const onBackdropDown = (e) => e.target === e.currentTarget && closePopup();
+
+        return (
+          <div className="popup-backdrop" onPointerDown={onBackdropDown} onContextMenu={(e) => e.preventDefault()}>
+            <div className="popup-panel tray-popup" style={style}>
+              {icons.map((icon) => (
+                <TrayIcon key={icon.id} icon={icon} systray={systray} />
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>

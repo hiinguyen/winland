@@ -1,0 +1,94 @@
+/* Volume popup panel (layer and panel chrome come from popup.css). */
+.vol {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px;
+}
+
+.vol-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vol-device {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--subtext);
+  font-size: 11px;
+}
+
+.vol-value {
+  flex: none;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.vol-value.muted { color: var(--overlay0); }
+
+.vol-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vol-mute {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface0);
+  color: var(--peach);
+  font-size: 16px;
+  transition: background 120ms, color 120ms, transform 120ms;
+}
+.vol-mute:hover { background: var(--surface1); }
+.vol-mute:active { transform: scale(0.92); }
+.vol-mute.on { color: var(--overlay0); }
+
+/* Slider: mauve-to-blue fill up to --pct, surface track after it. */
+.vol-slider {
+  flex: 1;
+  height: 6px;
+  margin: 0;
+  appearance: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--mauve), var(--blue)) 0 / var(--pct) 100% no-repeat, var(--surface1);
+  cursor: pointer;
+  outline: none;
+}
+.vol-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  border: 3px solid var(--blue);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 40%);
+  transition: transform 120ms;
+}
+.vol-slider:hover::-webkit-slider-thumb,
+.vol-slider:focus-visible::-webkit-slider-thumb { transform: scale(1.15); }
+
+.vol-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--subtext);
+  transition: background 120ms, color 120ms;
+}
+.vol-link:hover { background: var(--surface0); color: var(--text); }
+.vol-link i { color: var(--mauve); }
+
+.vol-empty { padding: 8px; color: var(--overlay0); }
